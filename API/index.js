@@ -24,12 +24,12 @@ app.get('/categorias', (req, res) => {
     if (padre_id) {
         // Busca los hijos Y la pregunta del padre
         const sqlChildren = 'SELECT * FROM Categorias WHERE id_padre = ? ORDER BY grupo_orden, posicion_orden';
-        const sqlParent = 'SELECT tipo_pregunta_hijos FROM Categorias WHERE id_categoria = ?';
+        const sqlParent = 'SELECT pregunta FROM Categorias WHERE id_categoria = ?';
         
         db.get(sqlParent, [padre_id], (err, parentRow) => {
             if (err) return res.status(500).json({ "error": err.message });
 
-            const question = (parentRow && parentRow.tipo_pregunta_hijos) ? parentRow.tipo_pregunta_hijos : "Selecciona una opción:";
+            const question = (parentRow && parentRow.tipo_pregunta_hijos) ? parentRow.pregunta : "Selecciona una opción:";
             
             db.all(sqlChildren, [padre_id], (err, childrenRows) => {
                 if (err) return res.status(500).json({ "error": err.message });
