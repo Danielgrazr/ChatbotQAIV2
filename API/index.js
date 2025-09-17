@@ -1,72 +1,65 @@
-// 1. Importar las librerías que instalamos
+// 1. Importar librerías
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 
-// 2. Configuración inicial
+// 2. Configuración
 const app = express();
-const PORT = process.env.PORT || 3000; // El puerto donde se ejecutará la API
+const PORT = process.env.PORT || 3000;
+app.use(cors());
+app.use(express.json());
 
-// 3. Middlewares
-app.use(cors()); // Habilita CORS para permitir peticiones desde el chatbot
-app.use(express.json()); // Permite a la API entender JSON
-
-// 4. Conectar a la base de datos SQLite
-// Asegúrate de que tu archivo .sqlite esté en la misma carpeta
-const db = new sqlite3.Database('./chatbot_db_V2.sqlite', (err) => {
+// 3. Conexión a la Base de Datos
+const db = new sqlite3.Database('./chatbot_db_v2.sqlite', (err) => {
     if (err) {
-        console.error("Error al conectar con la base de datos:", err.message);
-    } else {
-        console.log("Conectado a la base de datos SQLite.");
+        return console.error("Error al conectar a la DB:", err.message);
     }
+    console.log("Conexión exitosa a la base de datos SQLite.");
 });
 
-// --- DEFINICIÓN DE LOS ENDPOINTS DE LA API ---
-
-// 5. Endpoint para obtener las categorías (Paso 2.1 de la guía)
+// 4. Endpoint de Categorías (El motor de la conversación)
 app.get('/categorias', (req, res) => {
-    const { padre_id } = req.query; // Obtiene el id_padre de la URL, si existe
-
-    let sql;
-    const params = [];
+    const { padre_id } = req.query;
 
     if (padre_id) {
-        sql = 'SELECT * FROM Categorias WHERE id_padre = ? ORDER BY grupo_orden, posicion_orden';
-        params.push(padre_id);
-    } else {
-        sql = 'SELECT * FROM Categorias WHERE id_padre IS NULL ORDER BY grupo_orden, posicion_orden';
-    }
+        // Busca los hijos Y la pregunta del padre
+        const sqlChildren = 'SELECT * FROM Categorias WHERE id_padre = ? ORDER BY grupo_orden, posicion_orden';
+        const sqlParent = 'SELECT tipo_pregunta_hijos FROM Categorias WHERE id_categoria = ?';
+        
+        db.get(sqlParent, [padre_id], (err, parentRow) => {
+            if (err) return res.status(500).json({ "error": err.message });
 
-    db.all(sql, params, (err, rows) => {
-        if (err) {
-            res.status(500).json({ "error": err.message });
-            return;
-        }
-        res.json(rows);
-    });
+            const question = (parentRow && parentRow.tipo_pregunta_hijos) ? parentRow.tipo_pregunta_hijos : "Selecciona una opción:";
+            
+            db.all(sqlChildren, [padre_id], (err, childrenRows) => {
+                if (err) return res.status(500).json({ "error": err.message });
+                res.json({ question: question, children: childrenRows });
+            });
+        });
+    } else {
+        // Busca las categorías raíz (el inicio de la conversación)
+        const sqlRoot = 'SELECT * FROM Categorias WHERE id_padre IS NULL ORDER BY grupo_orden, posicion_orden';
+        db.all(sqlRoot, [], (err, childrenRows) => {
+            if (err) return res.status(500).json({ "error": err.message });
+            // La primera pregunta siempre es la misma
+            res.json({ question: "Hola, ¿Qué área deseas consultar?", children: childrenRows });
+        });
+    }
 });
 
-// 6. Endpoint para obtener la información final (Paso 2.2 de la guía)
+// 5. Endpoint de Información (El final del camino)
 app.get('/informacion', (req, res) => {
     const { categoria_id } = req.query;
-
-    if (!categoria_id) {
-        return res.status(400).json({ "error": "Falta el parámetro categoria_id" });
-    }
+    if (!categoria_id) return res.status(400).json({ "error": "Falta el categoria_id" });
 
     const sql = 'SELECT * FROM Informacion WHERE id_categoria = ? ORDER BY tipo_info, titulo';
-    
     db.all(sql, [categoria_id], (err, rows) => {
-        if (err) {
-            res.status(500).json({ "error": err.message });
-            return;
-        }
+        if (err) return res.status(500).json({ "error": err.message });
         res.json(rows);
     });
 });
 
-
-// 7. Iniciar el servidor
+// 6. Iniciar Servidor
 app.listen(PORT, () => {
-    console.log(`Servidor corriendo en el puerto ${PORT}`);
+    console.log(`Servidor de API corriendo en el puerto ${PORT}`);
 });
