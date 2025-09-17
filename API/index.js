@@ -10,7 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 // 3. Conexión a la Base de Datos
-const db = new sqlite3.Database('./chatbot_db_v2.sqlite', (err) => {
+const db = new sqlite3.Database('./databaseV2.sqlite', (err) => {
     if (err) {
         return console.error("Error al conectar a la DB:", err.message);
     }
