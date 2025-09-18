@@ -1,3 +1,4 @@
+// index.js - VERSIÓN FINAL
 // 1. Importar librerías
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
@@ -19,30 +20,36 @@ const db = new sqlite3.Database('./databaseV2.sqlite', (err) => {
 
 // 4. Endpoint de Categorías (El motor de la conversación)
 app.get('/categorias', (req, res) => {
+    // Usaremos 'padre_id' para ser consistentes
     const { padre_id } = req.query;
 
     if (padre_id) {
-        // Busca los hijos Y la pregunta del padre
+        // Busca los hijos de un padre específico
         const sqlChildren = 'SELECT * FROM Categorias WHERE id_padre = ? ORDER BY grupo_orden, posicion_orden';
         const sqlParent = 'SELECT pregunta FROM Categorias WHERE id_categoria = ?';
         
         db.get(sqlParent, [padre_id], (err, parentRow) => {
             if (err) return res.status(500).json({ "error": err.message });
 
-            const question = (parentRow && parentRow.tipo_pregunta_hijos) ? parentRow.pregunta : "Selecciona una opción:";
+            const question = (parentRow && parentRow.pregunta) ? parentRow.pregunta : "Selecciona una opción:";
             
             db.all(sqlChildren, [padre_id], (err, childrenRows) => {
                 if (err) return res.status(500).json({ "error": err.message });
-                res.json({ question: question, children: childrenRows });
+                
+                // Transformamos la lista a "Nombre (ID: X)"
+                const formattedChildren = childrenRows.map(row => `${row.nombre} (ID: ${row.id_categoria})`);
+                res.json({ question: question, children: formattedChildren });
             });
         });
     } else {
-        // Busca las categorías raíz (el inicio de la conversación)
+        // Busca las categorías raíz si no hay padre_id
         const sqlRoot = 'SELECT * FROM Categorias WHERE id_padre IS NULL ORDER BY grupo_orden, posicion_orden';
         db.all(sqlRoot, [], (err, childrenRows) => {
             if (err) return res.status(500).json({ "error": err.message });
-            // La primera pregunta siempre es la misma
-            res.json({ question: "Hola, ¿Qué área deseas consultar?", children: childrenRows });
+            
+            // Transformamos la lista a "Nombre (ID: X)"
+            const formattedChildren = childrenRows.map(row => `${row.nombre} (ID: ${row.id_categoria})`);
+            res.json({ question: "Hola, ¿Qué área deseas consultar?", children: formattedChildren });
         });
     }
 });
