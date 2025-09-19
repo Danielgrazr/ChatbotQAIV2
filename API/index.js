@@ -49,7 +49,7 @@ app.get('/categorias', (req, res) => {
             
             // Transformamos la lista a "Nombre (ID: X)"
             const formattedChildren = childrenRows.map(row => `${row.nombre} (ID: ${row.id_categoria})`);
-            res.json({ question: "Hola, ¿Qué área deseas consultar?", children: formattedChildren });
+            res.json({ question: "¡Hola! Soy Quali, tu asistente de calidad. Puedo ayudarte a resolver las dudas más frecuentes. Para empezar, selecciona el área que deseas consultar.", children: formattedChildren });
         });
     }
 });
